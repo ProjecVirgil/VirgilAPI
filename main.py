@@ -72,7 +72,7 @@ def create_user():
     """
     key = secrets.token_hex(16)
     print(key)
-    result = usersCollection.insert_one({
+    usersCollection.insert_one({
         "userId": key,
         "setting": setting
     })
