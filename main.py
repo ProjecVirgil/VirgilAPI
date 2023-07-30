@@ -16,6 +16,7 @@ client = MongoClient(urlMongo)
 db = client.virgilUsers
 usersCollection = db.users
 calendarCollection = db.calendarEvent
+
 app = FastAPI()
 
 # Take the base of setting
@@ -119,9 +120,10 @@ def delete_event(id: str):
     yesterday = yesterday.strftime("%d-%m-%Y")
     yesterday = yesterday.split("-")
     yesterday[1] = yesterday[1].replace("0", "")
+    if("0" == yesterday[0][0]):
+        yesterday[0] = yesterday[0].lstrip('0')
     yesterday = "-".join(yesterday)
     result = calendarCollection.find_one({"userId": id}) 
-    print(yesterday)
     query = {"userId": id}
     if result is None or yesterday not in result:
         return {"Delete": "No events yesterday"}, 202
