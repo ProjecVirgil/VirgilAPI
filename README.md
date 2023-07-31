@@ -7,8 +7,10 @@ tags:
   - python
 ---
 
-## BenchMark
+## BenchMark 📋
 
-Databese: MongoDB
-Hosting: Railway
-FrameWork: fastAPI
+| Database | Hosting |  FrameWork | Image | Average |
+| --- | ----------- | --- | ----------- | ----------- | 
+| MongoDB | Railway | fastAPI | ![image](assets/fastAPI.png) | 0,676
+| MongoDB | Railway |  Flask | ![image](assets/Flask.png) | 0,628
+
