@@ -120,10 +120,9 @@ def get_events(id: str):
     Returns:
         _type_: _description_
     """
-    result = calendarCollection.find_one({"userId": str(id)})
+    result = calendarCollection.find_one({"userId": str(id)},{"_id":0,"userId":0})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
-    del result["_id"]
     return result
 
 @app.put('/api/calendar/createUser/{id}/', status_code=201)
@@ -169,7 +168,7 @@ def getFormatDate():
     Returns:
         _type_: _description_
     """
-    today = datetime.date.today()
+    today = datetime.datetime.today()
     yesterday = today.date() + datetime.timedelta(days=-1)
     yesterday = yesterday.strftime("%d-%m-%Y")
     yesterday = yesterday.split("-")
