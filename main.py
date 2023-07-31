@@ -107,7 +107,7 @@ def create_user():
     return {"userId": key, "setting": setting}
 
 # ---------- CALENDAR FUNCTION ----------
-
+@app.get('/api/calendar/<id>/', status_code=201)
 def get_events(id: str):
     """_summary_
 
