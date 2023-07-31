@@ -7,6 +7,11 @@ from pymongo import MongoClient
 import os
 from fastapi.responses import JSONResponse
 from typing import List 
+import functools
+
+
+
+
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
 
@@ -15,13 +20,21 @@ client = MongoClient(urlMongo)
 
 db = client.virgilUsers
 usersCollection = db.users
+usersCollection.create_index("userId", unique=True)
 calendarCollection = db.calendarEvent
 
 app = FastAPI()
 
+
+
 # Take the base of setting
-with open('setting.json', 'r') as f:
-    setting = json.load(f)
+@functools.lru_cache(maxsize=None)
+def get_cached_setting():
+    with open('setting.json', 'r') as f:
+        return json.load(f)
+
+# Modifica la chiamata nel codice originale
+setting = get_cached_setting()
 
 # User Model
 class User(BaseModel):
@@ -40,6 +53,11 @@ class Event(BaseModel):
 def get_user(id: str):
     """
     A function to bring the user's setting through the generated key to Virgilio.    
+    
+     Raises:
+        HTTPException: _description_
+    Returns:
+        _type_: _description_
     """
     result = usersCollection.find_one({"userId": str(id)}, {"_id": 0, "userId": 0})
     if result is None:
@@ -55,8 +73,12 @@ def checkEmailPass(list):
 def new_setting(id: str, newSetting: dict):
     """
     This function updates all the setting of Virgil specifying the key of the user and
-    sends a payload in json and skips the empty values.       
+    sends a payload in json and skips the empty values.
+    
+    Returns:
+        _type_: _description_       
     """
+    
     updates = {f"setting.{key}": value for key, value in newSetting.items() if value != ""}
     query = {"userId": str(id)}
     value = {"$set": updates}
@@ -70,9 +92,13 @@ def new_setting(id: str, newSetting: dict):
 def create_user():
     """
     This function creates a new user which is entered into the database by the simple random key generated randomly and the setting base    
+    
+
+    Returns:
+        _type_: _description_
     """
+
     key = secrets.token_hex(16)
-    print(key)
     usersCollection.insert_one({
         "userId": key,
         "setting": setting
@@ -82,23 +108,50 @@ def create_user():
 
 # ---------- CALENDAR FUNCTION ----------
 
-@app.get('/api/calendar/{id}/', response_model=dict)
 def get_events(id: str):
+    """_summary_
+
+    Args:
+        id (str): _description_
+
+    Raises:
+        HTTPException: _description_
+
+    Returns:
+        _type_: _description_
     """
-    A function to bring the user's calendar through the generated key to Virgilio.    
-    """
-    result = calendarCollection.find_one({"userId": str(id)}, {"_id": 0, "userId": 0}) 
+    result = calendarCollection.find_one({"userId": str(id)})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
+    del result["_id"]
     return result
 
 @app.put('/api/calendar/createUser/{id}/', status_code=201)
 def create_user_calendar(id: str):
+    """_summary_
+
+    Args:
+        id (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
     calendarCollection.insert_one({"userId": id}) # Prepare the user for give event
     return id
 
 @app.put('/api/calendar/createEvent/{id}/{date}/', status_code=201)
 def create_event(id: str, date: str, events: List[str]):  # Cambiato events: Event a events: List[str]
+    """_summary_
+
+    Args:
+        id (str): _description_
+        date (str): _description_
+        events (List[str]): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    
     result = calendarCollection.find_one({"userId": id}, {date: 1}) 
     query = {"userId": id}
     if result is None or date not in result:
@@ -109,13 +162,14 @@ def create_event(id: str, date: str, events: List[str]):  # Cambiato events: Eve
         result = calendarCollection.update_many(query, value)  # Aggiungi evento
     return value
 
-@app.put('/api/calendar/deleteEvent/{id}/', status_code=201)
-def delete_event(id: str):
+
+def getFormatDate():
+    """_summary_
+
+    Returns:
+        _type_: _description_
     """
-    A function to delete the old event automatically.    
-    """
-    
-    today = datetime.datetime.today()
+    today = datetime.date.today()
     yesterday = today.date() + datetime.timedelta(days=-1)
     yesterday = yesterday.strftime("%d-%m-%Y")
     yesterday = yesterday.split("-")
@@ -123,6 +177,20 @@ def delete_event(id: str):
     if("0" == yesterday[0][0]):
         yesterday[0] = yesterday[0].lstrip('0')
     yesterday = "-".join(yesterday)
+    
+    return yesterday
+
+@app.put('/api/calendar/deleteEvent/{id}/', status_code=201)
+def delete_event(id: str):
+    """_summary_
+
+    Args:
+        id (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    yesterday = getFormatDate()
     result = calendarCollection.find_one({"userId": id}) 
     query = {"userId": id}
     if result is None or yesterday not in result:
