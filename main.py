@@ -173,9 +173,10 @@ def getFormatDate():
     yesterday = today.date() + datetime.timedelta(days=-1)
     yesterday = yesterday.strftime("%d-%m-%Y")
     yesterday = yesterday.split("-")
-    yesterday[1] = yesterday[1].replace("0", "")
-    if("0" == yesterday[0][0]):
-        yesterday[0] = yesterday[0].lstrip('0')
+    yesterday[1] = int(yesterday[1])
+    yesterday[1] = str(yesterday[1])
+    yesterday[0] = int(yesterday[0])
+    yesterday[0] = str(yesterday[0])
     yesterday = "-".join(yesterday)
     
     return yesterday
