@@ -5,9 +5,9 @@ API created to allow communication between a Flutter Android application and a P
 
 ### **Virgil-API** 🐝
 
-![Virgil-API](https://sloc.xyz/github/Retr0100/VirgilAPI/) 
-![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/Retr0100/VirgilAPI)
-![GitHub repo size](https://img.shields.io/github/repo-size/Retr0100/VirgilAPI?color=purple)
+![VirgilAPI](https://img.shields.io/badge/450-450?style=for-the-badge&logo=visualstudiocode&label=Lines%20of%20code&labelColor=282a3&color=%23164773)
+![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/Retr0100/VirgilAPI?style=for-the-badge&logo=github&labelColor=%23282a3&color=%231B7F79)
+![GitHub repo size](https://img.shields.io/github/repo-size/Retr0100/VirgilAPI?style=for-the-badge&logo=github&labelColor=%23282a3&color=%23bd93f9)
 
 
 ## BenchMark 📋
