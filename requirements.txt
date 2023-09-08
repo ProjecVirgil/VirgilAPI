@@ -1,3 +1,7 @@
 fastapi==0.100.0
 hypercorn==0.14.4
 pymongo==4.4.1
+deprecated==1.2.14
+importlib-resources==6.0.1 
+limits==3.6.0 
+slowapi==0.1.8

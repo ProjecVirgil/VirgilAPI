@@ -7,9 +7,12 @@ import secrets
 import os
 from typing import List
 import functools
+import re
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import to_callable
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel, validate_email
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
 
@@ -25,7 +28,33 @@ users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
 app = FastAPI()
+limiter = Limiter(key_func=to_callable(lambda request: request.client.host))
 
+
+@app.middleware("http")
+async def add_limiter(request: Request, call_next):
+    try:
+        limiter.limit("5 per minute")(request)
+    except:
+        raise HTTPException(status_code=429, detail="Too Many Requests")
+    return await call_next(request)
+
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome"}
+
+@app.get("/restricted")
+async def read_restricted():
+    return {"message": "Restricted"}
+
+
+def sanitisation(text):
+    text = re.sub(r'[^a-zA-Z0-9#_!.+@]', '', text)
+    if(len(text)> 100):
+        text = text[:100]    
+    return text
+
+print(sanitisation(""))
 # Take the base of setting
 @functools.lru_cache(maxsize=None)
 def get_cached_setting():
@@ -76,7 +105,7 @@ def get_user_settings(id_user: str):
     Returns:
         JsonResponse: the result of request
     """
-    result = users_collection.find_one({"userId": str(id_user)}, {"_id": 0, "userId": 0})
+    result = users_collection.find_one({"userId": sanitisation(str(id_user))}, {"_id": 0, "userId": 0})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     user_dict = dict(result)
@@ -105,6 +134,7 @@ def new_setting(id_user: str, new_setting: dict):
     Returns:
         dict: Json format file       
     """
+    id_user = sanitisation(id_user)
     updates = {f"setting.{key}": value for key, value in new_setting.items() if value != ""}
     query = {"userId": str(id_user)}
     value = {"$set": updates}
@@ -147,7 +177,7 @@ def get_events(id_user: str):
     Returns:
         list: List of events from the user
     """
-    result = calendar_collection.find_one({"userId": str(id_user)},{"_id":0,"userId":0})
+    result = calendar_collection.find_one({"userId": sanitisation(str(id_user))},{"_id":0,"userId":0})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
@@ -180,7 +210,9 @@ def create_event(id_user: str, date: str, events: List[str]):
     Returns:
         dict: The final result of modify
     """
-
+    id_user = sanitisation(str(id_user))
+    date = sanitisation(date)
+    events = sanitisation(events)
     result = calendar_collection.find_one({"userId": id_user}, {date: 1})
     query = {"userId": id_user}
     if result is None or date not in result:
@@ -225,6 +257,7 @@ def delete_event(id_user: str):
         dict:Element deleted
     """
     yesterday = get_formatted_date()
+    id_user = sanitisation(id_user)
     result = calendar_collection.find_one({"userId": id_user})
     query = {"userId": id_user}
     if result is None or yesterday not in result:
