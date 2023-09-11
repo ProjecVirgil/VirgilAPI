@@ -10,13 +10,15 @@ import functools
 import re
 
 from slowapi import Limiter
-from slowapi.util import get_ipaddr
+from slowapi.util import get_remote_address
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
 
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
@@ -30,23 +32,30 @@ users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
 app = FastAPI()
-limiter = Limiter(key_func=get_ipaddr)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+limiter = Limiter(key_func=get_remote_address)
+app.add_middleware(SlowAPIMiddleware, limiter=limiter)
+app.add_exception_handler(RateLimitExceeded, lambda request, exc: HTTPException(status_code=429, detail="Too Many Requests"))
 
 
 @app.get("/")
-@limiter.limit("5/minute")
 async def read_root():
     return {"message": "Welcome"}
 
 @app.get("/restricted")
-@limiter.limit("5/minute")
 async def read_restricted():
     return {"message": "Restricted"}
 
 
 def sanitisation(text):
+    """
+    Sanitize a string by removing all special characters and spaces from it
+
+    Args:
+        text (_type_): The input for the sanitasion
+
+    Returns:
+        text: the text sanitazed
+    """
     text = re.sub(r'[^a-zA-Z0-9#_!.+@]', '', text)
     if(len(text)> 100):
         text = text[:100]    
@@ -94,7 +103,6 @@ class Event(BaseModel):
 # ---------- USER FUNCTION ----------
 
 @app.get('/api/setting/{id_user}/', response_model=User)
-@limiter.limit("5/minute")
 def get_user_settings(id_user: str):
     """
     A function to bring the user's setting through the generated key to Virgilio.    
@@ -126,7 +134,6 @@ def check_email_pass(list_of_events):
         
 
 @app.post('/api/setting/modify/{id_user}/', response_model=User)
-@limiter.limit("5/minute")
 def new_setting(id_user: str, new_setting: dict):
     """
     This function updates all the setting of Virgil specifying the key of the user and
@@ -146,7 +153,6 @@ def new_setting(id_user: str, new_setting: dict):
 # ---- CALENDAR ----
 
 @app.put('/api/createUser', response_model=User, status_code=201)
-@limiter.limit("5/minute")
 def create_user():
     """
     This function creates a new user which is entered into the database by the 
@@ -167,7 +173,6 @@ def create_user():
 # ---------- CALENDAR FUNCTION ----------
 
 @app.get('/api/calendar/{id_user}/', response_model=dict)
-@limiter.limit("5/minute")
 def get_events(id_user: str):
     """
     Get all the events from a user by the id
@@ -189,7 +194,6 @@ def get_events(id_user: str):
 
 
 @app.put('/api/calendar/createUser/{id_user}/', status_code=201)
-@limiter.limit("5/minute")
 def create_user_calendar(id_user: str):
     """
     Create the profile in the db for manage the events of a user
@@ -205,7 +209,6 @@ def create_user_calendar(id_user: str):
 
 
 @app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
-@limiter.limit("5/minute")
 def create_event(id_user: str, date: str, events: List[str]):
     # Cambiato events: Event a events: List[str]
     """
@@ -255,7 +258,6 @@ def get_formatted_date():
 
 
 @app.put('/api/calendar/deleteEvent/{id_user}/', status_code=201)
-@limiter.limit("5/minute")
 def delete_event(id_user: str):
     """
     Delete all old events from the day and update the collection
