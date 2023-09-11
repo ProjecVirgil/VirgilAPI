@@ -15,6 +15,8 @@ from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
@@ -29,15 +31,9 @@ calendar_collection = db.calendarEvent
 
 app = FastAPI()
 limiter = Limiter(key_func=get_ipaddr)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-
-@app.middleware("http")
-async def add_limiter(request: Request, call_next):
-    try:
-        limiter.limit("5 per minute")(request)
-    except:
-        raise HTTPException(status_code=429, detail="Too Many Requests")
-    return await call_next(request)
 
 @app.get("/")
 async def read_root():
@@ -94,7 +90,7 @@ class Event(BaseModel):
 
 
 # ---------- USER FUNCTION ----------
-
+@limiter.limit("5/minute")
 @app.get('/api/setting/{id_user}/', response_model=User)
 def get_user_settings(id_user: str):
     """
@@ -110,7 +106,8 @@ def get_user_settings(id_user: str):
         raise HTTPException(status_code=404, detail="User not found")
     user_dict = dict(result)
     return JSONResponse(content=user_dict, status_code=200)
-
+    
+@limiter.limit("5/minute")
 def check_email_pass(list_of_events):
     """
     A function that checks whether a list contains an email and password or not
@@ -124,7 +121,7 @@ def check_email_pass(list_of_events):
     for i in list_of_events:
         if i == "":
             return False
-
+@limiter.limit("5/minute")
 @app.post('/api/setting/modify/{id_user}/', response_model=User)
 def new_setting(id_user: str, new_setting: dict):
     """
@@ -143,6 +140,7 @@ def new_setting(id_user: str, new_setting: dict):
 
 
 # ---- CALENDAR ----
+@limiter.limit("5/minute")
 @app.put('/api/createUser', response_model=User, status_code=201)
 def create_user():
     """
@@ -162,7 +160,7 @@ def create_user():
     return {"userId": key, "setting": setting}
 
 # ---------- CALENDAR FUNCTION ----------
-
+@limiter.limit("5/minute")
 @app.get('/api/calendar/{id_user}/', response_model=dict)
 def get_events(id_user: str):
     """
@@ -182,6 +180,8 @@ def get_events(id_user: str):
         raise HTTPException(status_code=404, detail="User not found")
     return result
 
+
+@limiter.limit("5/minute")
 @app.put('/api/calendar/createUser/{id_user}/', status_code=201)
 def create_user_calendar(id_user: str):
     """
@@ -196,6 +196,7 @@ def create_user_calendar(id_user: str):
     calendar_collection.insert_one({"userId": id_user}) # Prepare the user for give event
     return id_user
 
+@limiter.limit("5/minute")
 @app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
 def create_event(id_user: str, date: str, events: List[str]):
     # Cambiato events: Event a events: List[str]
@@ -225,7 +226,7 @@ def create_event(id_user: str, date: str, events: List[str]):
         result = calendar_collection.update_many(query, value)  # Aggiungi evento
     return value
 
-
+@limiter.limit("5/minute")
 def get_formatted_date():
     """
     Get today's format date
@@ -245,6 +246,7 @@ def get_formatted_date():
 
     return yesterday
 
+@limiter.limit("5/minute")
 @app.put('/api/calendar/deleteEvent/{id_user}/', status_code=201)
 def delete_event(id_user: str):
     """
