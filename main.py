@@ -19,7 +19,7 @@ from fastapi import FastAPI, Request, HTTPException
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-
+from slowapi.middleware import SlowAPIMiddleware
 
 
 # Take the url for connection to MongoDB
@@ -33,21 +33,19 @@ users_collection = db.users
 users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, default_limits=["5/minute"])
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
+app.add_middleware(SlowAPIMiddleware)
 
 
 
 @app.get("/")
-@limiter.limit("5/minute")
 async def read_root():
     return {"message": "Welcome"}
 
 @app.get("/restricted")
-@limiter.limit("5/minute")
 async def read_restricted():
     return {"message": "Restricted"}
 
