@@ -10,9 +10,9 @@ import functools
 import re
 
 from slowapi import Limiter
-from slowapi.util import to_callable
+from slowapi.util import get_ipaddr
 from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel, validate_email
+from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
 
@@ -28,7 +28,7 @@ users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
 app = FastAPI()
-limiter = Limiter(key_func=to_callable(lambda request: request.client.host))
+limiter = Limiter(key_func=get_ipaddr(lambda request: request.client.host))
 
 
 @app.middleware("http")
