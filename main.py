@@ -15,9 +15,10 @@ from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from fastapi import FastAPI, Request, HTTPException
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
 
 # Take the url for connection to MongoDB
@@ -41,8 +42,18 @@ async def rate_limit_exception(request: Request, exc):
 
 @app.middleware("http")
 async def add_limiter(request: Request, call_next):
-    await limiter(request)
-    return await call_next(request)
+    # Ottieni l'indirizzo IP del client
+    remote_address = get_remote_address(request)
+    
+    # Verifica il limite per l'indirizzo IP
+    limit_info = limiter.get_ratelimit_data(f"LIMITER_{remote_address}")
+
+    if limit_info and limit_info.remaining < 0:
+        raise RateLimitExceeded(detail="Too Many Requests")
+
+    response = await call_next(request)
+    return response
+
 
 
 @app.get("/")
