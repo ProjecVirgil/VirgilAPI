@@ -28,7 +28,7 @@ users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
 app = FastAPI()
-limiter = Limiter(key_func=get_ipaddr(lambda request: request.client.host))
+limiter = Limiter(key_func=get_ipaddr)
 
 
 @app.middleware("http")
