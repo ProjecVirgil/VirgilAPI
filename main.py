@@ -36,10 +36,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.get("/")
+@limiter.limit("5/minute")
 async def read_root():
     return {"message": "Welcome"}
 
 @app.get("/restricted")
+@limiter.limit("5/minute")
 async def read_restricted():
     return {"message": "Restricted"}
 
@@ -90,8 +92,9 @@ class Event(BaseModel):
 
 
 # ---------- USER FUNCTION ----------
-@limiter.limit("5/minute")
+
 @app.get('/api/setting/{id_user}/', response_model=User)
+@limiter.limit("5/minute")
 def get_user_settings(id_user: str):
     """
     A function to bring the user's setting through the generated key to Virgilio.    
@@ -107,7 +110,6 @@ def get_user_settings(id_user: str):
     user_dict = dict(result)
     return JSONResponse(content=user_dict, status_code=200)
     
-@limiter.limit("5/minute")
 def check_email_pass(list_of_events):
     """
     A function that checks whether a list contains an email and password or not
@@ -121,8 +123,10 @@ def check_email_pass(list_of_events):
     for i in list_of_events:
         if i == "":
             return False
-@limiter.limit("5/minute")
+        
+
 @app.post('/api/setting/modify/{id_user}/', response_model=User)
+@limiter.limit("5/minute")
 def new_setting(id_user: str, new_setting: dict):
     """
     This function updates all the setting of Virgil specifying the key of the user and
@@ -140,8 +144,9 @@ def new_setting(id_user: str, new_setting: dict):
 
 
 # ---- CALENDAR ----
-@limiter.limit("5/minute")
+
 @app.put('/api/createUser', response_model=User, status_code=201)
+@limiter.limit("5/minute")
 def create_user():
     """
     This function creates a new user which is entered into the database by the 
@@ -160,8 +165,9 @@ def create_user():
     return {"userId": key, "setting": setting}
 
 # ---------- CALENDAR FUNCTION ----------
-@limiter.limit("5/minute")
+
 @app.get('/api/calendar/{id_user}/', response_model=dict)
+@limiter.limit("5/minute")
 def get_events(id_user: str):
     """
     Get all the events from a user by the id
@@ -181,8 +187,9 @@ def get_events(id_user: str):
     return result
 
 
-@limiter.limit("5/minute")
+
 @app.put('/api/calendar/createUser/{id_user}/', status_code=201)
+@limiter.limit("5/minute")
 def create_user_calendar(id_user: str):
     """
     Create the profile in the db for manage the events of a user
@@ -196,8 +203,9 @@ def create_user_calendar(id_user: str):
     calendar_collection.insert_one({"userId": id_user}) # Prepare the user for give event
     return id_user
 
-@limiter.limit("5/minute")
+
 @app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
+@limiter.limit("5/minute")
 def create_event(id_user: str, date: str, events: List[str]):
     # Cambiato events: Event a events: List[str]
     """
@@ -226,7 +234,6 @@ def create_event(id_user: str, date: str, events: List[str]):
         result = calendar_collection.update_many(query, value)  # Aggiungi evento
     return value
 
-@limiter.limit("5/minute")
 def get_formatted_date():
     """
     Get today's format date
@@ -246,8 +253,9 @@ def get_formatted_date():
 
     return yesterday
 
-@limiter.limit("5/minute")
+
 @app.put('/api/calendar/deleteEvent/{id_user}/', status_code=201)
+@limiter.limit("5/minute")
 def delete_event(id_user: str):
     """
     Delete all old events from the day and update the collection
