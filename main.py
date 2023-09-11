@@ -16,9 +16,10 @@ from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request, HTTPException
-from slowapi import Limiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
 
 
 # Take the url for connection to MongoDB
@@ -32,35 +33,21 @@ users_collection = db.users
 users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
 
-app = FastAPI()
 limiter = Limiter(key_func=get_remote_address)
+app = FastAPI()
 app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_exception(request: Request, exc):
-    return HTTPException(status_code=429, detail="Too Many Requests")
-
-@app.middleware("http")
-async def add_limiter(request: Request, call_next):
-    # Ottieni l'indirizzo IP del client
-    remote_address = get_remote_address(request)
-    
-    # Verifica il limite per l'indirizzo IP
-    limit_info = limiter.get_ratelimit_data(f"LIMITER_{remote_address}")
-
-    if limit_info and limit_info.remaining < 0:
-        raise RateLimitExceeded(detail="Too Many Requests")
-
-    response = await call_next(request)
-    return response
 
 
 
 @app.get("/")
+@limiter.limit("5/minute")
 async def read_root():
     return {"message": "Welcome"}
 
 @app.get("/restricted")
+@limiter.limit("5/minute")
 async def read_restricted():
     return {"message": "Restricted"}
 
