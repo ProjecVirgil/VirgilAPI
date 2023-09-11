@@ -33,8 +33,16 @@ calendar_collection = db.calendarEvent
 
 app = FastAPI()
 limiter = Limiter(key_func=get_remote_address)
-app.add_middleware(SlowAPIMiddleware, limiter=limiter)
-app.add_exception_handler(RateLimitExceeded, lambda request, exc: HTTPException(status_code=429, detail="Too Many Requests"))
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception(request: Request, exc):
+    return HTTPException(status_code=429, detail="Too Many Requests")
+
+@app.middleware("http")
+async def add_limiter(request: Request, call_next):
+    await limiter(request)
+    return await call_next(request)
 
 
 @app.get("/")
