@@ -20,3 +20,14 @@ API created to allow communication between a Flutter Android application and a P
 ## Notes 📖
 
 I don' know if switching to fastAPI is a good choice because the difference is not mutch except for the more input control if you have your tips to give me tell me pls ❤️ 
+
+## 💸 Credits and technologies used
+
+Developer: Only me for now
+Technologies:
+ - Python
+ - Fast
+ - MongoDB
+ - Pymongo
+
+ps: follow me on [instagram](https://www.instagram.com/akiidjk) and [twitter](https://twitter.com/R3tr0_fj) contact me for help or support
