@@ -10,12 +10,10 @@ import functools
 import re
 
 from slowapi import Limiter
-from slowapi.util import get_remote_address
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI,HTTPException,Request
 from pydantic import BaseModel
 from pymongo import MongoClient
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, Request, HTTPException
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -24,7 +22,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
-
+urlMongo = "mongodb://mongo:FpziAXX6LxYZppYFZwVP@containers-us-west-101.railway.app:6626"
 # Init the client of Mongo
 client = MongoClient(urlMongo)
 
@@ -32,6 +30,7 @@ db = client.virgilUsers
 users_collection = db.users
 users_collection.create_index("userId", unique=True)
 calendar_collection = db.calendarEvent
+request_collection = db.user_request
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["5/minute"])
 app = FastAPI()
@@ -49,6 +48,43 @@ async def read_root():
 async def read_restricted():
     return {"message": "Restricted"}
 
+def validate_user(request:Request) -> bool:
+    """
+    This function is used in order to check if a user exists or not 
+    and also to verify that it has access to this resource
+
+    Args:
+        request (Request): The request
+
+    Returns:
+        bool: True/False is valid or not
+    """
+    ip_request = request.client.host
+    result_search = request_collection.find_one({"ip": str(ip_request)},{"_id":0,"ip":0})  
+      
+    if result_search is None:
+        request_collection.insert_one(
+            {
+                "ip":str(ip_request),
+                "count": 1
+            }
+        )
+    else:
+        if(result_search['count'] <= 5):
+            query = {"ip": str(ip_request)}
+            value = {"$set":  {
+                    "ip":str(ip_request),
+                    "count": result_search["count"] + 1
+                }}
+            
+            request_collection.update_one(
+                query,
+                value
+            )
+        else:
+            return False
+    return True
+        
 
 def sanitisation(text):
     """
@@ -65,7 +101,6 @@ def sanitisation(text):
         text = text[:100]    
     return text
 
-print(sanitisation(""))
 # Take the base of setting
 @functools.lru_cache(maxsize=None)
 def get_cached_setting():
@@ -75,7 +110,7 @@ def get_cached_setting():
     Returns:
         json: The default settings
     """
-    with open('setting.json', 'r',encoding='utf-8') as file:
+    with open('setting_preset.json', 'r',encoding='utf-8') as file:
         return json.load(file)
 
 # Modifica la chiamata nel codice originale
@@ -154,10 +189,8 @@ def new_setting(id_user: str, new_setting: dict):
     return get_user_settings(id_user)
 
 
-# ---- CALENDAR ----
-
 @app.put('/api/createUser', response_model=User, status_code=201)
-def create_user():
+def create_user(request: Request):
     """
     This function creates a new user which is entered into the database by the 
     simple random key generated randomly and the setting base    
@@ -165,14 +198,16 @@ def create_user():
     Returns:
         dict: The dict with the user id and the settings
     """
-
-    key = secrets.token_hex(16)
-    users_collection.insert_one({
-        "userId": key,
-        "setting": setting
-    })
-
-    return {"userId": key, "setting": setting}
+    
+    if(validate_user(request)):
+        key = secrets.token_hex(16)
+        users_collection.insert_one({
+            "userId": key,
+            "setting": setting
+        })
+        return {"userId": key, "setting": setting}
+    else:
+        return {"Error":"Sorry, but you've run out of keys you can generate"}
 
 # ---------- CALENDAR FUNCTION ----------
 
