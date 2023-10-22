@@ -127,6 +127,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+env_api_fast
 
 # Spyder project settings
 .spyderproject

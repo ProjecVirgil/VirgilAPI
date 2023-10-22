@@ -3,16 +3,15 @@
 """
 import datetime
 import json
-import secrets
 import os
+import secrets
 from typing import List
 import functools
 import re
 
-from slowapi import Limiter
+from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import FastAPI,HTTPException,Request
 from pydantic import BaseModel
-from pymongo import MongoClient
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -23,7 +22,7 @@ from slowapi.middleware import SlowAPIMiddleware
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
 # Init the client of Mongo
-client = MongoClient(urlMongo)
+client = AsyncIOMotorClient(urlMongo)
 
 db = client.virgilUsers
 users_collection = db.users
@@ -41,13 +40,15 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome"}
+    return {"message": "Server works"}
 
 @app.get("/restricted")
 async def read_restricted():
     return {"message": "Restricted"}
 
-def validate_user(request:Request) -> bool:
+# ---------- UTILS FUNCTION ----------
+
+async def validate_user(request:Request) -> bool:
     """
     This function is used in order to check if a user exists or not 
     and also to verify that it has access to this resource
@@ -59,10 +60,10 @@ def validate_user(request:Request) -> bool:
         bool: True/False is valid or not
     """
     ip_request = request.client.host
-    result_search = request_collection.find_one({"ip": str(ip_request)},{"_id":0,"ip":0})  
+    result_search = await request_collection.find_one({"ip": str(ip_request)},{"_id":0,"ip":0})  
       
     if result_search is None:
-        request_collection.insert_one(
+        await request_collection.insert_one(
             {
                 "ip":str(ip_request),
                 "count": 1
@@ -76,7 +77,7 @@ def validate_user(request:Request) -> bool:
                     "count": result_search["count"] + 1
                 }}
             
-            request_collection.update_one(
+            await request_collection.update_one(
                 query,
                 value
             )
@@ -84,7 +85,6 @@ def validate_user(request:Request) -> bool:
             return False
     return True
         
-
 def sanitisation(text):
     """
     Sanitize a string by removing all special characters and spaces from it
@@ -111,9 +111,8 @@ def get_cached_setting():
     """
     with open('setting_preset.json', 'r',encoding='utf-8') as file:
         return json.load(file)
-
-# Modifica la chiamata nel codice originale
 setting = get_cached_setting()
+
 
 # User Model
 class User(BaseModel):
@@ -137,25 +136,6 @@ class Event(BaseModel):
     date: str
     events: dict
 
-
-# ---------- USER FUNCTION ----------
-
-@app.get('/api/setting/{id_user}/', response_model=User)
-def get_user_settings(id_user: str):
-    """
-    A function to bring the user's setting through the generated key to Virgilio.    
-
-     Raises:
-        HTTPException: Error
-    Returns:
-        JsonResponse: the result of request
-    """
-    result = users_collection.find_one({"userId": sanitisation(str(id_user))}, {"_id": 0, "userId": 0})
-    if result is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    user_dict = dict(result)
-    return JSONResponse(content=user_dict, status_code=200)
-    
 def check_email_pass(list_of_events):
     """
     A function that checks whether a list contains an email and password or not
@@ -169,111 +149,6 @@ def check_email_pass(list_of_events):
     for i in list_of_events:
         if i == "":
             return False
-        
-
-@app.post('/api/setting/modify/{id_user}/', response_model=User)
-def new_setting(id_user: str, new_setting: dict):
-    """
-    This function updates all the setting of Virgil specifying the key of the user and
-    sends a payload in json and skips the empty values.
-    
-    Returns:
-        dict: Json format file       
-    """
-    id_user = sanitisation(id_user)
-    updates = {f"setting.{key}": value for key, value in new_setting.items() if value != ""}
-    query = {"userId": str(id_user)}
-    value = {"$set": updates}
-    users_collection.update_many(query, value)
-    return get_user_settings(id_user)
-
-
-@app.put('/api/createUser', response_model=User, status_code=201)
-def create_user(request: Request):
-    """
-    This function creates a new user which is entered into the database by the 
-    simple random key generated randomly and the setting base    
-
-    Returns:
-        dict: The dict with the user id and the settings
-    """
-    
-    if(validate_user(request)):
-        key = secrets.token_hex(16)
-        users_collection.insert_one({
-            "userId": key,
-            "setting": setting
-        })
-        return {"userId": key, "setting": setting}
-    else:
-        return {"Error":"Sorry, but you've run out of keys you can generate"}
-
-# ---------- CALENDAR FUNCTION ----------
-
-@app.get('/api/calendar/{id_user}/', response_model=dict)
-def get_events(id_user: str):
-    """
-    Get all the events from a user by the id
-
-    Args:
-        id (str): The id of user
-
-    Raises:
-        HTTPException: _description_
-
-    Returns:
-        list: List of events from the user
-    """
-    result = calendar_collection.find_one({"userId": sanitisation(str(id_user))},{"_id":0,"userId":0})
-    if result is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return result
-
-
-
-@app.put('/api/calendar/createUser/{id_user}/', status_code=201)
-def create_user_calendar(id_user: str):
-    """
-    Create the profile in the db for manage the events of a user
-
-    Args:
-        id (str): id of user
-
-    Returns:
-        id_user: the id of user
-    """
-    calendar_collection.insert_one({"userId": id_user}) # Prepare the user for give event
-    return id_user
-
-
-@app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
-def create_event(id_user: str, date: str, events: List[str]):
-    # Cambiato events: Event a events: List[str]
-    """
-    Create an event to save it into the database
-
-    Args:
-        id (str): The id of user
-        date (str): the date of events
-        events (List[str]): the description of events
-
-    Returns:
-        dict: The final result of modify
-    """
-    id_user = sanitisation(str(id_user))
-    date = sanitisation(date)
-    events = sanitisation(events)
-    result = calendar_collection.find_one({"userId": id_user}, {date: 1})
-    query = {"userId": id_user}
-    if result is None or date not in result:
-        # Utilizziamo direttamente il payload JSON per l'aggiornamento
-        value = {"$set": {date: events}}
-        result = calendar_collection.update_one(query, value)
-    else:
-        # Utilizziamo direttamente il payload JSON per l'aggiornamento
-        value = {"$addToSet": {date: {"$each": events}}}
-        result = calendar_collection.update_many(query, value)  # Aggiungi evento
-    return value
 
 def get_formatted_date():
     """
@@ -293,12 +168,131 @@ def get_formatted_date():
     yesterday = "-".join(yesterday)
 
     return yesterday
+# ---------- USER FUNCTION ----------
 
+@app.get('/api/setting/{id_user}/', response_model=User)
+async def get_user_settings(id_user: str):
+    """
+    A function to bring the user's setting through the generated key to Virgilio.    
+
+     Raises:
+        HTTPException: Error
+    Returns:
+        JsonResponse: the result of request
+    """
+    result = await users_collection.find_one({"userId": sanitisation(str(id_user))}, {"_id": 0, "userId": 0})
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_dict = dict(result)
+    return JSONResponse(content=user_dict, status_code=200)
+    
+@app.post('/api/setting/modify/{id_user}/', response_model=User)
+async def new_setting(id_user: str, new_setting: dict):
+    """
+    This function updates all the setting of Virgil specifying the key of the user and
+    sends a payload in json and skips the empty values.
+    
+    Returns:
+        dict: Json format file       
+    """
+    id_user = sanitisation(id_user)
+    updates = {f"setting.{key}": value for key, value in new_setting.items() if value != ""}
+    query = {"userId": str(id_user)}
+    value = {"$set": updates}
+    await users_collection.update_many(query, value)
+    return await get_user_settings(id_user)
+
+
+@app.put('/api/createUser', response_model=User, status_code=201)
+async def create_user(request: Request):
+    """
+    This function creates a new user which is entered into the database by the 
+    simple random key generated randomly and the setting base    
+
+    Returns:
+        dict: The dict with the user id and the settings
+    """
+    
+    if(await validate_user(request)):
+        key = secrets.token_hex(16)
+        await users_collection.insert_one({
+            "userId": key,
+            "setting": setting
+        })
+        return {"userId": key, "setting": setting}
+    else:
+        return {"Error":"Sorry, but you've run out of keys you can generate"}
+
+# ---------- CALENDAR FUNCTION ----------
+
+@app.get('/api/calendar/{id_user}/', response_model=dict)
+async def get_events(id_user: str):
+    """
+    Get all the events from a user by the id
+
+    Args:
+        id (str): The id of user
+
+    Raises:
+        HTTPException: _description_
+
+    Returns:
+        list: List of events from the user
+    """
+    result = await calendar_collection.find_one({"userId": sanitisation(str(id_user))},{"_id":0,"userId":0})
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
+
+
+
+@app.put('/api/calendar/createUser/{id_user}/', status_code=201)
+async def create_user_calendar(id_user: str):
+    """
+    Create the profile in the db for manage the events of a user
+
+    Args:
+        id (str): id of user
+
+    Returns:
+        id_user: the id of user
+    """
+    await calendar_collection.insert_one({"userId": id_user}) # Prepare the user for give event
+    return id_user
+
+
+@app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
+async def create_event(id_user: str, date: str, events: List[str]):
+    # Cambiato events: Event a events: List[str].
+    """
+    Create an event to save it into the database
+
+    Args:
+        id (str): The id of user
+        date (str): the date of events
+        events (List[str]): the description of events
+
+    Returns:
+        dict: The final result of modify
+    """
+    id_user = sanitisation(str(id_user))
+    date = sanitisation(date)
+    result = await calendar_collection.find_one({"userId": id_user}, {date: 1})
+    query = {"userId": id_user}
+    if result is None or date not in result:
+        # Utilizziamo direttamente il payload JSON per l'aggiornamento
+        value = {"$set": {date: events}}
+        result = await calendar_collection.update_one(query, value)
+    else:
+        # Utilizziamo direttamente il payload JSON per l'aggiornamento
+        value = {"$addToSet": {date: {"$each": events}}}
+        result = await calendar_collection.update_many(query, value)  # Aggiungi evento
+    return value
 
 @app.put('/api/calendar/deleteEvent/{id_user}/', status_code=201)
-def delete_event(id_user: str):
+async def delete_event(id_user: str):
     """
-    Delete all old events from the day and update the collection
+    Delete all old events from the day and update the collection.
 
     Args:
         id (str): id of user
@@ -308,10 +302,10 @@ def delete_event(id_user: str):
     """
     yesterday = get_formatted_date()
     id_user = sanitisation(id_user)
-    result = calendar_collection.find_one({"userId": id_user})
+    result = await calendar_collection.find_one({"userId": id_user})
     query = {"userId": id_user}
     if result is None or yesterday not in result:
         return {"Delete": "No events yesterday"}, 202
     value = {"$unset": {yesterday: 1}}
-    result = calendar_collection.update_one(query, value) # Add event
+    result = await calendar_collection.update_one(query, value) # Add event
     return value

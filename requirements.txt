@@ -51,3 +51,4 @@ wrapt==1.15.0
 wsproto==1.2.0
 zope.event==5.0
 zope.interface==6.0
+motor==3.3.1
