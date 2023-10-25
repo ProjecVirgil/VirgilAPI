@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "uvicorn main:app --bind  --host[::] --port $PORT"
+    "startCommand": "uvicorn main:app --bind  --host [::] --port $PORT"
   }
 }
