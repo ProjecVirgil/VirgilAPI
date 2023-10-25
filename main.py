@@ -21,6 +21,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 # Take the url for connection to MongoDB
 urlMongo = os.getenv('MONGO_URL')
+urlMongo = "mongodb://mongo:FpziAXX6LxYZppYFZwVP@containers-us-west-101.railway.app:6626"
 # Init the client of Mongo
 client = AsyncIOMotorClient(urlMongo)
 
