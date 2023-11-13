@@ -1,4 +1,4 @@
-# FastAPI 🎯 | Last docs update 13/11/2023 (day/month/year)
+# FastAPI 🎯 | Last docs update 13/11/2023 (d/m/y)
 
 ## Description 📝
 API created to allow communication between a Flutter Android application and a Python application.the API is very simple and is linked to a database hosted with the api on rail, in fact all requests go through the database.
