@@ -1,4 +1,4 @@
-# FastAPI 🎯
+# FastAPI 🎯 | Last docs update 13/11/2023 (day/month/year)
 
 ## Description 📝
 API created to allow communication between a Flutter Android application and a Python application.the API is very simple and is linked to a database hosted with the api on rail, in fact all requests go through the database.
@@ -29,5 +29,7 @@ Technologies:
  - Fast
  - MongoDB
  - Pymongo
-
+ - 
 ps: follow me on [instagram](https://www.instagram.com/akiidjk) and [twitter](https://twitter.com/R3tr0_fj) contact me for help or support
+------ 
+**If you want to support a small developer take a [**special link**](https://www.paypal.me/Retr0jk)**
