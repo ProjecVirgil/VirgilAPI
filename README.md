@@ -29,7 +29,23 @@ Technologies:
  - Fast
  - MongoDB
  - Pymongo
- - 
-ps: follow me on [instagram](https://www.instagram.com/akiidjk) and [twitter](https://twitter.com/R3tr0_fj) contact me for help or support
------- 
-**If you want to support a small developer take a [**special link**](https://www.paypal.me/Retr0jk)**
+
+## Other
+
+As mentioned above, VirgililAI is part of a larger project that includes an app, a website and others, the links of which are at Project:
+
+### [Website](https://projectvirgil.net)
+
+### [Virgil AI](https://github.com/Retr0100/VirgilAI)
+
+### [Analysis of ML](https://github.com/Retr0100/VirgilML)
+
+## Credits
+
+The project is made by one person and is still in development, I'm looking for someone to give me advice and a hand to continue the project, which I believe is an excellent open source and free alternative to devices like Alexa or Google Home.
+
+### Contact me
+
+For code related issues you can use github directly for other collaborations or alerts write to this email <projectvirgilai@gmail.com>
+
+If you want to support a small developer take a [**special link**](https://www.paypal.me/Retr0jk)
