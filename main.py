@@ -1,11 +1,8 @@
-"""
-    Main file for the API
-"""
+"""Main file for the API."""
 import datetime
 import json
 import os
 import secrets
-from typing import List
 import functools
 import re
 
@@ -20,9 +17,9 @@ from slowapi.middleware import SlowAPIMiddleware
 
 
 # Take the url for connection to MongoDB
-urlMongo = os.getenv('MONGO_URL')
+url_mongo = os.getenv('MONGO_URL')
 # Init the client of Mongo
-client = AsyncIOMotorClient(urlMongo)
+client = AsyncIOMotorClient(url_mongo)
 
 db = client.virgilUsers
 users_collection = db.users
@@ -40,18 +37,26 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.get("/")
 async def read_root():
+    """Simple message to check if the server is up.
+
+    Returns:
+        _type_: _description_
+    """
     return {"message": "Server works"}
 
 @app.get("/restricted")
 async def read_restricted():
+    """Simple message to check if the user is restricted.
+
+    Returns:
+        _type_: _description_
+    """
     return {"message": "Restricted"}
 
 # ---------- UTILS FUNCTION ----------
 
 async def validate_user(request:Request) -> bool:
-    """
-    This function is used in order to check if a user exists or not 
-    and also to verify that it has access to this resource
+    """This function is used in order to check if a user exists or not and also to verify that it has access to this resource.
 
     Args:
         request (Request): The request
@@ -61,7 +66,7 @@ async def validate_user(request:Request) -> bool:
     """
     ip_request = request.client.host
     result_search = await request_collection.find_one({"ip": str(ip_request)},{"_id":0,"ip":0})  
-      
+
     if result_search is None:
         await request_collection.insert_one(
             {
@@ -69,55 +74,51 @@ async def validate_user(request:Request) -> bool:
                 "count": 1
             }
         )
+    elif(result_search['count'] <= 5):
+        query = {"ip": str(ip_request)}
+        value = {"$set":  {
+                "ip":str(ip_request),
+                "count": result_search["count"] + 1
+            }}
+
+        await request_collection.update_one(
+            query,
+            value
+        )
     else:
-        if(result_search['count'] <= 5):
-            query = {"ip": str(ip_request)}
-            value = {"$set":  {
-                    "ip":str(ip_request),
-                    "count": result_search["count"] + 1
-                }}
-            
-            await request_collection.update_one(
-                query,
-                value
-            )
-        else:
-            return False
+        return False
     return True
-        
-def sanitisation(text):
-    """
-    Sanitize a string by removing all special characters and spaces from it
+
+def sanitization(text):
+    """Sanitize a string by removing all special characters and spaces from it.
 
     Args:
-        text (_type_): The input for the sanitasion
+        text (_type_): The input for the sanitization
 
     Returns:
-        text: the text sanitazed
+        text: the text sanitized
     """
     text = re.sub(r'[^a-zA-Z0-9#_!.+@]', '', text)
     if(len(text)> 100):
-        text = text[:100]    
+        text = text[:100]
     return text
 
 # Take the base of setting
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_cached_setting():
-    """
-    Get all settings from database and cache it in memory
+    """Get all settings from database and cache it in memory.
 
     Returns:
         json: The default settings
     """
-    with open('setting_preset.json', 'r',encoding='utf-8') as file:
+    with open('setting_preset.json',encoding='utf-8') as file:
         return json.load(file)
 setting = get_cached_setting()
 
 
 # User Model
 class User(BaseModel):
-    """
-    User model used in this API
+    """User model used in this API.
 
     Args:
         BaseModel (Class): The base model
@@ -127,8 +128,7 @@ class User(BaseModel):
 
 # Event Model
 class Event(BaseModel):
-    """
-    Event model used in this API
+    """Event model used in this API.
 
     Args:
         BaseModel (Class): The base model
@@ -137,11 +137,10 @@ class Event(BaseModel):
     events: dict
 
 def check_email_pass(list_of_events):
-    """
-    A function that checks whether a list contains an email and password or not
+    """A function that checks whether a list contains an email and password or not.
 
     Args:
-        list (list): An list of data
+        list_of_events (list): An list of data
 
     Returns:
         bool: False or None
@@ -151,8 +150,7 @@ def check_email_pass(list_of_events):
             return False
 
 def get_formatted_date():
-    """
-    Get today's format date
+    """Get today's format date.
 
     Returns:
         str: The date formatted
@@ -172,30 +170,27 @@ def get_formatted_date():
 
 @app.get('/api/setting/{id_user}/', response_model=User)
 async def get_user_settings(id_user: str):
-    """
-    A function to bring the user's setting through the generated key to Virgilio.    
+    """A function to bring the user's setting through the generated key to Virgilio.
 
-     Raises:
+    Raises:
         HTTPException: Error
     Returns:
         JsonResponse: the result of request
     """
-    result = await users_collection.find_one({"userId": sanitisation(str(id_user))}, {"_id": 0, "userId": 0})
+    result = await users_collection.find_one({"userId": sanitization(str(id_user))}, {"_id": 0, "userId": 0})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     user_dict = dict(result)
     return JSONResponse(content=user_dict, status_code=200)
-    
+
 @app.post('/api/setting/modify/{id_user}/', response_model=User)
 async def new_setting(id_user: str, new_setting: dict):
-    """
-    This function updates all the setting of Virgil specifying the key of the user and
-    sends a payload in json and skips the empty values.
-    
+    """This function updates all the setting of Virgil specifying the key of the user and sends a payload in json and skips the empty values.
+
     Returns:
-        dict: Json format file       
+        dict: Json format file
     """
-    id_user = sanitisation(id_user)
+    id_user = sanitization(id_user)
     updates = {f"setting.{key}": value for key, value in new_setting.items() if value != ""}
     query = {"userId": str(id_user)}
     value = {"$set": updates}
@@ -205,14 +200,11 @@ async def new_setting(id_user: str, new_setting: dict):
 
 @app.put('/api/createUser', response_model=User, status_code=201)
 async def create_user(request: Request):
-    """
-    This function creates a new user which is entered into the database by the 
-    simple random key generated randomly and the setting base    
+    """This function creates a new user which is entered into the database by the simple random key generated randomly and the setting base.
 
     Returns:
         dict: The dict with the user id and the settings
     """
-    
     if(await validate_user(request)):
         key = secrets.token_hex(16)
         await users_collection.insert_one({
@@ -227,11 +219,10 @@ async def create_user(request: Request):
 
 @app.get('/api/calendar/{id_user}/', response_model=dict)
 async def get_events(id_user: str):
-    """
-    Get all the events from a user by the id
+    """Get all the events from a user by the id.
 
     Args:
-        id (str): The id of user
+        id_user (str): The id of user
 
     Raises:
         HTTPException: _description_
@@ -239,7 +230,7 @@ async def get_events(id_user: str):
     Returns:
         list: List of events from the user
     """
-    result = await calendar_collection.find_one({"userId": sanitisation(str(id_user))},{"_id":0,"userId":0})
+    result = await calendar_collection.find_one({"userId": sanitization(str(id_user))},{"_id":0,"userId":0})
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
@@ -248,11 +239,10 @@ async def get_events(id_user: str):
 
 @app.put('/api/calendar/createUser/{id_user}/', status_code=201)
 async def create_user_calendar(id_user: str):
-    """
-    Create the profile in the db for manage the events of a user
+    """Create the profile in the db for manage the events of a user.
 
     Args:
-        id (str): id of user
+        id_user (str): id of user
 
     Returns:
         id_user: the id of user
@@ -262,46 +252,41 @@ async def create_user_calendar(id_user: str):
 
 
 @app.put('/api/calendar/createEvent/{id_user}/{date}/', status_code=201)
-async def create_event(id_user: str, date: str, events: List[str]):
-    # Cambiato events: Event a events: List[str].
-    """
-    Create an event to save it into the database
+async def create_event(id_user: str, date: str, events: list[str]):
+    """Create an event to save it into the database.
 
     Args:
-        id (str): The id of user
+        id_user (str): The id of user
         date (str): the date of events
         events (List[str]): the description of events
 
     Returns:
         dict: The final result of modify
     """
-    id_user = sanitisation(str(id_user))
-    date = sanitisation(date)
+    id_user = sanitization(str(id_user))
+    date = sanitization(date)
     result = await calendar_collection.find_one({"userId": id_user}, {date: 1})
     query = {"userId": id_user}
     if result is None or date not in result:
-        # Utilizziamo direttamente il payload JSON per l'aggiornamento
         value = {"$set": {date: events}}
         result = await calendar_collection.update_one(query, value)
     else:
-        # Utilizziamo direttamente il payload JSON per l'aggiornamento
         value = {"$addToSet": {date: {"$each": events}}}
-        result = await calendar_collection.update_many(query, value)  # Aggiungi evento
+        result = await calendar_collection.update_many(query, value)
     return value
 
 @app.put('/api/calendar/deleteEvent/{id_user}/', status_code=201)
 async def delete_event(id_user: str):
-    """
-    Delete all old events from the day and update the collection.
+    """Delete all old events from the day and update the collection.
 
     Args:
-        id (str): id of user
+        id_user (str): id of user
 
     Returns:
         dict:Element deleted
     """
     yesterday = get_formatted_date()
-    id_user = sanitisation(id_user)
+    id_user = sanitization(id_user)
     result = await calendar_collection.find_one({"userId": id_user})
     query = {"userId": id_user}
     if result is None or yesterday not in result:
