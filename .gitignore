@@ -128,6 +128,7 @@ ENV/
 env.bak/
 venv.bak/
 env_api_fast
+poetry.lock
 
 # Spyder project settings
 .spyderproject
