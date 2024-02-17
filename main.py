@@ -104,7 +104,7 @@ def sanitization(text):
     return text
 
 # Take the base of setting
-@functools.cache
+@functools.lru_cache(maxsize=None)
 def get_cached_setting():
     """Get all settings from database and cache it in memory.
 
