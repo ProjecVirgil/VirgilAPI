@@ -2,7 +2,7 @@ annotated-types==0.6.0
 anyio==4.2.0
 coverage==7.4.1
 Deprecated==1.2.14
-dnspython==2.6.0
+dnspython==2.6.1
 fastapi==0.109.2
 idna==3.6
 importlib-resources==6.1.1
