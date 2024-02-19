@@ -1,5 +1,5 @@
 annotated-types==0.6.0
-anyio==4.2.0
+anyio==4.3.0
 coverage==7.4.1
 Deprecated==1.2.14
 dnspython==2.6.0
