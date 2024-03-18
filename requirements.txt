@@ -6,7 +6,7 @@ dnspython==2.6.0
 fastapi==0.109.2
 idna==3.6
 importlib-resources==6.1.1
-limits==3.8.0
+limits==3.10.1
 motor==3.3.2
 packaging==23.2
 pydantic==2.6.1
